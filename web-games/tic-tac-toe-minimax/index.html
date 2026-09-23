@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unbeatable Tic-Tac-Toe</title>
+<style>
+  :root{
+    --bg:#11131a; --panel:#1a1d27; --line:#2c3040;
+    --ink:#e8eaf2; --muted:#8b91a6; --x:#5aa9ff; --o:#ff7a93; --win:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:18px;background:var(--bg);color:var(--ink);
+       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px}
+  h1{font-size:1.35rem;margin:0;font-weight:650;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:.88rem;margin:-10px 0 0;text-align:center;max-width:34ch;line-height:1.5}
+  .board{display:grid;grid-template-columns:repeat(3,92px);grid-template-rows:repeat(3,92px);
+         gap:8px;background:var(--line);padding:8px;border-radius:14px}
+  .cell{background:var(--panel);border:0;border-radius:9px;font-size:2.6rem;font-weight:700;
+        color:var(--ink);cursor:pointer;transition:background .12s,transform .08s;
+        display:flex;align-items:center;justify-content:center;font-family:inherit}
+  .cell:hover:not(:disabled){background:#222635}
+  .cell:active:not(:disabled){transform:scale(.97)}
+  .cell:disabled{cursor:default}
+  .cell.x{color:var(--x)} .cell.o{color:var(--o)}
+  .cell.win{background:#1f3b31;color:var(--win)}
+  .status{font-size:1rem;min-height:1.5em;font-weight:550}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button.ui{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+            border-radius:8px;padding:8px 14px;font-size:.85rem;cursor:pointer;font-family:inherit}
+  button.ui:hover{background:#222635}
+  select{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+         border-radius:8px;padding:8px 10px;font-size:.85rem;font-family:inherit}
+  .score{color:var(--muted);font-size:.82rem;letter-spacing:.02em}
+</style>
+</head>
+<body>
+  <h1>Unbeatable Tic-Tac-Toe</h1>
+  <p class="sub">The computer plays a full minimax search. On "Perfect" it cannot be beaten &mdash; the best you can manage is a draw.</p>
+
+  <div class="row">
+    <label class="score" for="level">Difficulty</label>
+    <select id="level">
+      <option value="1.0" selected>Perfect</option>
+      <option value="0.75">Hard</option>
+      <option value="0.5">Medium</option>
+      <option value="0">Random</option>
+    </select>
+    <button class="ui" id="reset">New game</button>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div class="status" id="status">Your move &mdash; you are X.</div>
+  <div class="score" id="score">You 0 &middot; Computer 0 &middot; Draws 0</div>
+
+<script>
+const HUMAN = 'X', AI = 'O';
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+const boardEl  = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const scoreEl  = document.getElementById('score');
+const levelEl  = document.getElementById('level');
+
+let board, over, score = {you:0, cpu:0, draw:0};
+
+/* ---------- game state helpers ---------- */
+
+function winnerOf(b){
+  for (const [a,c,d] of LINES){
+    if (b[a] && b[a] === b[c] && b[a] === b[d]) return {mark:b[a], line:[a,c,d]};
+  }
+  return b.includes('') ? null : {mark:'draw', line:[]};
+}
+
+const freeCells = b => b.reduce((acc,v,i) => (v === '' ? (acc.push(i), acc) : acc), []);
+
+/* ---------- minimax with depth preference ----------
+   Winning sooner and losing later both score better, which makes the AI
+   finish games off instead of drifting, and stall as long as it can when lost. */
+
+function minimax(b, isAiTurn, depth){
+  const w = winnerOf(b);
+  if (w){
+    if (w.mark === AI)    return  10 - depth;
+    if (w.mark === HUMAN) return depth - 10;
+    return 0;
+  }
+  let best = isAiTurn ? -Infinity : Infinity;
+  for (const i of freeCells(b)){
+    b[i] = isAiTurn ? AI : HUMAN;
+    const s = minimax(b, !isAiTurn, depth + 1);
+    b[i] = '';
+    best = isAiTurn ? Math.max(best, s) : Math.min(best, s);
+  }
+  return best;
+}
+
+function bestMove(b){
+  let best = -Infinity, move = null;
+  for (const i of freeCells(b)){
+    b[i] = AI;
+    const s = minimax(b, false, 0);
+    b[i] = '';
+    if (s > best){ best = s; move = i; }
+  }
+  return move;
+}
+
+function aiMove(b){
+  const free = freeCells(b);
+  const strength = parseFloat(levelEl.value);
+  // Below "Perfect", the AI plays optimally only some of the time.
+  if (Math.random() >= strength) return free[Math.floor(Math.random() * free.length)];
+  return bestMove(b);
+}
+
+/* ---------- rendering ---------- */
+
+function render(result){
+  [...boardEl.children].forEach((btn, i) => {
+    btn.textContent = board[i];
+    btn.className = 'cell' + (board[i] ? ' ' + board[i].toLowerCase() : '');
+    btn.disabled = over || board[i] !== '';
+  });
+  if (result && result.line.length){
+    result.line.forEach(i => boardEl.children[i].classList.add('win'));
+  }
+  scoreEl.textContent = `You ${score.you} · Computer ${score.cpu} · Draws ${score.draw}`;
+}
+
+function finish(result){
+  over = true;
+  if (result.mark === HUMAN){ score.you++;  statusEl.textContent = 'You win. That should not happen on Perfect.'; }
+  else if (result.mark === AI){ score.cpu++; statusEl.textContent = 'Computer wins.'; }
+  else { score.draw++; statusEl.textContent = 'Draw — the best result available against perfect play.'; }
+  render(result);
+}
+
+/* ---------- turn flow ---------- */
+
+function play(i){
+  if (over || board[i]) return;
+  board[i] = HUMAN;
+  let result = winnerOf(board);
+  if (result) return finish(result);
+
+  render();
+  statusEl.textContent = 'Computer thinking…';
+
+  // Small delay so the move is legible rather than instantaneous.
+  setTimeout(() => {
+    board[aiMove(board)] = AI;
+    result = winnerOf(board);
+    if (result) return finish(result);
+    statusEl.textContent = 'Your move.';
+    render();
+  }, 220);
+}
+
+function reset(){
+  board = Array(9).fill('');
+  over = false;
+  statusEl.textContent = 'Your move — you are X.';
+  render();
+}
+
+boardEl.innerHTML = '';
+for (let i = 0; i < 9; i++){
+  const b = document.createElement('button');
+  b.className = 'cell';
+  b.setAttribute('aria-label', `Cell ${i + 1}`);
+  b.addEventListener('click', () => play(i));
+  boardEl.appendChild(b);
+}
+document.getElementById('reset').addEventListener('click', reset);
+levelEl.addEventListener('change', reset);
+reset();
+</script>
+</body>
+</html>
