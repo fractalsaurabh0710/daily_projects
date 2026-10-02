@@ -11,6 +11,7 @@ things rather than accumulating half-started repos.
 | 2026-09-22 | [Unbeatable Tic-Tac-Toe](web-games/tic-tac-toe-minimax/)         | web-games | Minimax with depth-preferred scoring; provably cannot be beaten |
 | 2026-09-29 | [Bloom Filter](algorithms/bloom-filter/)                         | algorithms | Probabilistic set sized from closed-form formulas; measured 1.09% FP vs 1% designed |
 | 2026-10-01 | [Cron Expression Parser](python/cron-next/)                      | python    | Parses 5-field cron expressions and computes the next fire times, OR rule included |
+| 2026-10-02 | [Terminal Histogram](cli-tools/hist/)                            | cli-tools | Pipes numbers in and draws their distribution; Freedman–Diaconis binning, eighth-block bars |
 
 ## Categories
 
