@@ -13,6 +13,7 @@ things rather than accumulating half-started repos.
 | 2026-10-01 | [Cron Expression Parser](python/cron-next/)                      | python    | Parses 5-field cron expressions and computes the next fire times, OR rule included |
 | 2026-10-02 | [Terminal Histogram](cli-tools/hist/)                            | cli-tools | Pipes numbers in and draws their distribution; Freedman–Diaconis binning, eighth-block bars |
 | 2026-10-03 | [Reactive Signals](javascript/reactive-signals/)                 | javascript | Fine-grained reactivity in ~120 lines; dependencies tracked automatically, no dep arrays |
+| 2026-10-04 | [Longest Substring with K Repeats](leetcode/longest-substring-k-repeating/) | leetcode  | LeetCode 395 two ways: divide-and-conquer on impossible characters, and a window with the distinct count pinned |
 
 ## Categories
 
