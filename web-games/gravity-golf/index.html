@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Gravity Golf</title>
+<style>
+  body { margin:0; background:#0b0f1a; color:#cbd5e1; font:14px/1.5 ui-monospace,monospace;
+         display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px; }
+  canvas { background:#0b0f1a; border:1px solid #1e293b; border-radius:6px; touch-action:none; }
+  #hud { display:flex; gap:18px; }
+  b { color:#f1f5f9; }
+</style>
+<div id="hud"><span>hole <b id="lvl">1</b>/3</span><span>strokes <b id="str">0</b></span><span id="msg"></span></div>
+<canvas id="c" width="640" height="440"></canvas>
+<p>Drag from the white ball to aim, release to launch. Gravity does the rest.</p>
+<script>
+const W = 640, H = 440, G = 2600;      // G tuned so a planet's pull is visible at ~100px
+const HOLE_R = 12, SINK = 300;         // the ball must arrive inside HOLE_R and below SINK
+const LEVELS = [
+  { ball:[70,220],  hole:[570,150], planets:[[320,220,34,1.0]] },
+  { ball:[70,360],  hole:[570,80],  planets:[[250,170,26,0.8],[420,290,26,0.8]] },
+  { ball:[60,220],  hole:[600,330], planets:[[330,220,46,1.6],[330,60,18,0.45],[330,380,18,0.45]] },
+];
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+let lvl = 0, strokes = 0, ball, vel, flying, trail, aim = null, planets, hole;
+
+function load(i) {
+  const L = LEVELS[i];
+  ball = { x:L.ball[0], y:L.ball[1] }; vel = { x:0, y:0 };
+  planets = L.planets.map(([x,y,r,m]) => ({ x, y, r, m }));
+  hole = { x:L.hole[0], y:L.hole[1], r:HOLE_R };
+  flying = false; trail = []; aim = null;
+  document.getElementById("lvl").textContent = i + 1;
+}
+
+// Acceleration at a point: Newtonian sum, softened by each planet's radius so the
+// 1/r^2 singularity can't fling the ball to infinity when it grazes the surface.
+function accel(x, y) {
+  let ax = 0, ay = 0;
+  for (const p of planets) {
+    const dx = p.x - x, dy = p.y - y;
+    const d2 = dx*dx + dy*dy + p.r*p.r;
+    const f = G * p.m / (d2 * Math.sqrt(d2));
+    ax += f * dx; ay += f * dy;
+  }
+  return [ax, ay];
+}
+
+// Velocity Verlet: second-order and symmetric in time, so a closed orbit stays
+// closed instead of spiralling the way plain Euler does at the same step size.
+function step(dt) {
+  let [ax, ay] = accel(ball.x, ball.y);
+  ball.x += vel.x*dt + 0.5*ax*dt*dt;
+  ball.y += vel.y*dt + 0.5*ay*dt*dt;
+  const [bx, by] = accel(ball.x, ball.y);
+  vel.x += 0.5*(ax + bx)*dt;
+  vel.y += 0.5*(ay + by)*dt;
+}
+
+function hits() {
+  for (const p of planets) {
+    const dx = p.x - ball.x, dy = p.y - ball.y;
+    if (Math.hypot(dx, dy) < p.r + 4) return "crash";
+  }
+  if (Math.hypot(hole.x - ball.x, hole.y - ball.y) < hole.r &&
+      Math.hypot(vel.x, vel.y) < SINK) return "sunk";
+  if (ball.x < -40 || ball.x > W+40 || ball.y < -40 || ball.y > H+40) return "lost";
+  return null;
+}
+
+function say(t) { document.getElementById("msg").textContent = t; }
+
+function tick() {
+  if (flying) {
+    for (let i = 0; i < 4; i++) step(1/240);   // substeps: stable near a planet
+    trail.push({ x:ball.x, y:ball.y });
+    if (trail.length > 900) trail.shift();
+    const r = hits();
+    if (r === "sunk") {
+      flying = false;
+      if (lvl === LEVELS.length - 1) say("all three sunk in " + strokes + " strokes");
+      else { say("sunk!"); setTimeout(() => { load(++lvl); say(""); }, 900); }
+    } else if (r) {
+      flying = false; say(r === "crash" ? "crashed — try again" : "off into space");
+      setTimeout(() => { load(lvl); say(""); }, 900);
+    }
+  }
+  draw();
+  requestAnimationFrame(tick);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  for (const p of planets) {
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+    g.addColorStop(0, "rgba(56,189,248,0.22)"); g.addColorStop(1, "rgba(56,189,248,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r*4, 0, 7); ctx.fill();
+    ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+  }
+  ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(hole.x, hole.y, hole.r, 0, 7); ctx.stroke();
+
+  ctx.strokeStyle = "rgba(226,232,240,0.35)"; ctx.lineWidth = 1; ctx.beginPath();
+  trail.forEach((t, i) => i ? ctx.lineTo(t.x, t.y) : ctx.moveTo(t.x, t.y));
+  ctx.stroke();
+
+  if (aim) {
+    ctx.strokeStyle = "#f87171"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(aim.x, aim.y); ctx.stroke();
+  }
+  ctx.fillStyle = "#f8fafc"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 5, 0, 7); ctx.fill();
+}
+
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  return { x:e.clientX - r.left, y:e.clientY - r.top };
+}
+cv.addEventListener("pointerdown", e => {
+  if (flying) return;
+  const p = pos(e);
+  if (Math.hypot(p.x - ball.x, p.y - ball.y) < 26) { aim = p; cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener("pointermove", e => { if (aim) aim = pos(e); });
+cv.addEventListener("pointerup", () => {
+  if (!aim) return;
+  vel.x = (aim.x - ball.x) * 2.2; vel.y = (aim.y - ball.y) * 2.2;
+  aim = null; flying = true; trail = [];
+  document.getElementById("str").textContent = ++strokes;
+});
+
+load(0); tick();
+</script>
