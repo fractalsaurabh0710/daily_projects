@@ -18,6 +18,7 @@ things rather than accumulating half-started repos.
 | 2026-10-06 | [Indexable Skip List](algorithms/indexable-skip-list/)          | algorithms | Sorted multiset with no rotations; spans on every pointer give O(log n) k-th-smallest and rank |
 | 2026-10-07 | [Tiny Event Loop](python/tiny-event-loop/)                        | python    | Generators plus a virtual clock: sleep, spawn, join and gather in ~100 lines, no asyncio |
 | 2026-10-08 | [Disk Usage Treemap](cli-tools/du-treemap/)                       | cli-tools | Squarified treemap of directory sizes in coloured terminal blocks; half-cell units fix the aspect ratio |
+| 2026-10-09 | [Mini Spreadsheet](javascript/mini-spreadsheet/)                   | javascript | Formula parser plus a dependency graph discovered during evaluation; only downstream cells recompute |
 
 ## Categories
 
