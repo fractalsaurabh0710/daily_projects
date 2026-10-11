@@ -20,6 +20,7 @@ things rather than accumulating half-started repos.
 | 2026-10-08 | [Disk Usage Treemap](cli-tools/du-treemap/)                       | cli-tools | Squarified treemap of directory sizes in coloured terminal blocks; half-cell units fix the aspect ratio |
 | 2026-10-09 | [Mini Spreadsheet](javascript/mini-spreadsheet/)                   | javascript | Formula parser plus a dependency graph discovered during evaluation; only downstream cells recompute |
 | 2026-10-10 | [Shortest Subarray with Sum at Least K](leetcode/shortest-subarray-sum-at-least-k/) | leetcode  | LeetCode 862 with negatives allowed: prefix sums plus a monotonic deque, where the sliding window has nothing to slide against |
+| 2026-10-11 | [Laser Mirrors](web-games/laser-mirrors/)                         | web-games | Rotate-only mirror puzzle; the generator walks the beam to lay out a solution, then flips mirrors so every puzzle is solvable by construction |
 
 ## Categories
 

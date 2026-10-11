@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Laser Mirrors</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+         align-items: center; justify-content: center; gap: 14px;
+         background: #0d1017; color: #c9d2e3;
+         font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: .04em; }
+  canvas { border-radius: 10px; background: #11151e; cursor: pointer;
+           box-shadow: 0 10px 40px #0006; touch-action: manipulation; }
+  #hud { display: flex; gap: 18px; align-items: center; min-height: 24px; }
+  #msg { color: #7bdcb5; font-weight: 600; }
+  #moves { color: #5c6678; font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: #c9d2e3; background: #1c2230; border: 1px solid #2c3444;
+           border-radius: 7px; padding: 5px 13px; cursor: pointer; }
+  button:hover { background: #253040; }
+</style>
+<h1>LASER MIRRORS</h1>
+<canvas id="c" width="500" height="500"></canvas>
+<div id="hud">
+  <span id="moves"></span><span id="msg"></span><button id="new">New puzzle</button>
+</div>
+<script src="engine.js"></script>
+<script>
+'use strict';
+var PAD = 40, CELL = 60;
+var cv = document.getElementById('c'), g = cv.getContext('2d');
+var puzzle, moves, won;
+
+function px(i) { return PAD + i * CELL + CELL / 2; }
+
+function newGame() {
+  puzzle = generate();
+  moves = 0; won = false;
+  document.getElementById('msg').textContent = '';
+  draw();
+}
+
+function draw() {
+  var t = trace(puzzle.mirrors, puzzle.entry), e = puzzle.target;
+  won = !!t.exit && t.exit.x === e.x && t.exit.y === e.y;
+
+  g.fillStyle = '#11151e';
+  g.fillRect(0, 0, 500, 500);
+
+  // Grid.
+  g.strokeStyle = '#1d2433'; g.lineWidth = 1;
+  for (var i = 0; i <= N; i++) {
+    g.beginPath();
+    g.moveTo(PAD + i * CELL, PAD); g.lineTo(PAD + i * CELL, PAD + N * CELL);
+    g.moveTo(PAD, PAD + i * CELL); g.lineTo(PAD + N * CELL, PAD + i * CELL);
+    g.stroke();
+  }
+
+  // Emitter notch and target pad, both half a cell outside the grid.
+  var d = DIRS[puzzle.entry.d];
+  g.fillStyle = '#44506a';
+  g.fillRect(px(puzzle.entry.x - d[0]) - 9, px(puzzle.entry.y - d[1]) - 9, 18, 18);
+  g.fillStyle = won ? '#7bdcb5' : '#3c2f4d';
+  g.strokeStyle = won ? '#7bdcb5' : '#8a6fb0'; g.lineWidth = 2;
+  g.fillRect(px(e.x) - 12, px(e.y) - 12, 24, 24);
+  g.strokeRect(px(e.x) - 12, px(e.y) - 12, 24, 24);
+
+  // Beam: emitter, every cell centre it crosses, then the exit point.
+  g.strokeStyle = won ? '#7bdcb5' : '#ff5c6e';
+  g.shadowColor = g.strokeStyle; g.shadowBlur = 12;
+  g.lineWidth = 3; g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(px(puzzle.entry.x - d[0]), px(puzzle.entry.y - d[1]));
+  t.path.forEach(function (c) { g.lineTo(px(c[0]), px(c[1])); });
+  if (t.exit) g.lineTo(px(t.exit.x), px(t.exit.y));
+  g.stroke();
+  g.shadowBlur = 0;
+
+  // Mirrors on top of the beam.
+  g.strokeStyle = '#dfe7f5'; g.lineWidth = 4; g.lineCap = 'round';
+  puzzle.mirrors.forEach(function (m, k) {
+    var p = k.split(','), cx = px(+p[0]), cy = px(+p[1]), r = CELL / 2 - 10;
+    g.beginPath();
+    if (m === '/') { g.moveTo(cx - r, cy + r); g.lineTo(cx + r, cy - r); }
+    else { g.moveTo(cx - r, cy - r); g.lineTo(cx + r, cy + r); }
+    g.stroke();
+  });
+
+  document.getElementById('moves').textContent = moves + (moves === 1 ? ' flip' : ' flips');
+  if (won) document.getElementById('msg').textContent = 'Beam on target.';
+}
+
+cv.addEventListener('click', function (ev) {
+  if (won) return;
+  var b = cv.getBoundingClientRect();
+  var x = Math.floor(((ev.clientX - b.left) * cv.width / b.width - PAD) / CELL);
+  var y = Math.floor(((ev.clientY - b.top) * cv.height / b.height - PAD) / CELL);
+  var k = key(x, y), m = puzzle.mirrors.get(k);
+  if (!m) return;
+  puzzle.mirrors.set(k, m === '/' ? '\\' : '/');
+  moves++;
+  draw();
+});
+
+document.getElementById('new').addEventListener('click', newGame);
+newGame();
+</script>
