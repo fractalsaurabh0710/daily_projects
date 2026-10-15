@@ -24,6 +24,7 @@ things rather than accumulating half-started repos.
 | 2026-10-12 | [FM-Index](algorithms/fm-index/)                                 | algorithms | Substring search straight off the Burrows-Wheeler transform; a sampled suffix array walks LF backwards to recover positions |
 | 2026-10-13 | [Call-Tree Profiler](python/call-tree-profiler/) | python | Deterministic profiler on sys.setprofile that keeps the call shape instead of a flat table; C-level calls get their own nodes |
 | 2026-10-14 | [watchfade](cli-tools/watch-fade/) | cli-tools | `watch -d` whose highlights cool over four refreshes instead of vanishing; line-aligned, then character-level, so one ticking digit lights alone |
+| 2026-10-15 | [Copy-on-Write Drafts](javascript/copy-on-write-drafts/) | javascript | Mutate a draft freely and get an immutable copy that shares every untouched subtree; a Proxy copies the spine on first write, not the leaves |
 
 ## Categories
 
