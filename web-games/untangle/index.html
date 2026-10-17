@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Untangle</title>
+<style>
+  :root { --bg:#0e1116; --fg:#e6edf3; --dim:#7d8590; --good:#3fb950; --bad:#f85149; --node:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 ui-sans-serif,system-ui,sans-serif;
+         display:flex; flex-direction:column; align-items:center; min-height:100vh; }
+  header { padding:16px 12px 8px; text-align:center; }
+  h1 { margin:0; font-size:20px; letter-spacing:.02em; }
+  #status { color:var(--dim); margin-top:4px; }
+  #status b { color:var(--fg); }
+  #status.solved b, #status.solved { color:var(--good); }
+  #wrap { width:min(92vw,620px); aspect-ratio:1; position:relative; touch-action:none; }
+  canvas { width:100%; height:100%; display:block; border-radius:10px; background:#11161d; }
+  footer { padding:10px; display:flex; gap:8px; }
+  button { background:#21262d; color:var(--fg); border:1px solid #30363d; border-radius:6px;
+           padding:6px 14px; font:inherit; cursor:pointer; }
+  button:hover { background:#30363d; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Untangle</h1>
+  <div id="status"></div>
+</header>
+<div id="wrap"><canvas id="c"></canvas></div>
+<footer>
+  <button id="again">Scramble</button>
+  <button id="next">New puzzle</button>
+</footer>
+<script>
+const R = 0.028;                       // node radius, in normalized units
+let level = 5, nodes = [], edges = [], solution = [], dragging = -1;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+
+/* --- geometry ------------------------------------------------------- */
+const cross = (o, a, b) => (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x);
+
+// Proper crossing only: segments sharing an endpoint never count.
+function crosses(p, q, r, s) {
+  if (p === r || p === s || q === r || q === s) return false;
+  const d1 = cross(p, q, r), d2 = cross(p, q, s);
+  const d3 = cross(r, s, p), d4 = cross(r, s, q);
+  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+}
+
+function crossingPairs() {
+  const hit = new Set();
+  for (let i = 0; i < edges.length; i++)
+    for (let j = i + 1; j < edges.length; j++) {
+      const [a, b] = edges[i], [c, d] = edges[j];
+      if (crosses(nodes[a], nodes[b], nodes[c], nodes[d])) { hit.add(i); hit.add(j); }
+    }
+  return hit;
+}
+
+/* --- puzzle generation ----------------------------------------------
+   Scatter n points, then add the shortest edges that cross nothing
+   already placed. The layout it was built from is a planar embedding,
+   so a solution provably exists before the player ever sees it.       */
+function generate(n) {
+  const pts = [];
+  for (let guard = 0; pts.length < n && guard < 4000; guard++) {
+    const p = { x: 0.10 + Math.random()*0.80, y: 0.10 + Math.random()*0.80 };
+    if (pts.every(q => Math.hypot(q.x-p.x, q.y-p.y) > 0.16)) pts.push(p);
+  }
+  nodes = pts;
+
+  const cand = [];
+  for (let i = 0; i < nodes.length; i++)
+    for (let j = i + 1; j < nodes.length; j++)
+      cand.push([i, j, Math.hypot(nodes[i].x-nodes[j].x, nodes[i].y-nodes[j].y)]);
+  cand.sort((a, b) => a[2] - b[2]);
+
+  edges = [];
+  for (const [i, j] of cand) {
+    const clash = edges.some(([a, b]) => crosses(nodes[a], nodes[b], nodes[i], nodes[j]));
+    if (!clash) edges.push([i, j]);
+  }
+  solution = nodes.map(p => ({ x: p.x, y: p.y }));   // kept so tests can check it
+  scramble();
+}
+
+// Throw every node onto a circle in random order: maximally tangled, same graph.
+function scramble() {
+  const order = nodes.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  order.forEach((id, k) => {
+    const a = (k / order.length) * Math.PI * 2;
+    nodes[id].x = 0.5 + 0.40 * Math.cos(a);
+    nodes[id].y = 0.5 + 0.40 * Math.sin(a);
+  });
+  draw();
+}
+
+/* --- rendering ------------------------------------------------------- */
+function draw() {
+  const size = canvas.clientWidth;
+  if (canvas.width !== size * devicePixelRatio) {
+    canvas.width = canvas.height = Math.max(1, Math.round(size * devicePixelRatio));
+  }
+  const S = canvas.width;
+  const X = p => p.x * S, Y = p => p.y * S;
+
+  ctx.clearRect(0, 0, S, S);
+  const hit = crossingPairs();
+
+  ctx.lineWidth = Math.max(1.5, S * 0.004);
+  edges.forEach(([a, b], i) => {
+    ctx.strokeStyle = hit.has(i) ? '#f85149' : 'rgba(63,185,80,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(X(nodes[a]), Y(nodes[a]));
+    ctx.lineTo(X(nodes[b]), Y(nodes[b]));
+    ctx.stroke();
+  });
+
+  nodes.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(X(p), Y(p), R * S, 0, Math.PI * 2);
+    ctx.fillStyle = i === dragging ? '#e6edf3' : '#58a6ff';
+    ctx.fill();
+  });
+
+  const n = hit.size ? [...hit].length : 0;
+  statusEl.className = n ? '' : 'solved';
+  statusEl.innerHTML = n
+    ? `level ${level} &middot; <b>${n}</b> tangled edge${n === 1 ? '' : 's'}`
+    : `level ${level} &middot; <b>solved</b> &mdash; nothing crosses`;
+}
+
+/* --- input ----------------------------------------------------------- */
+function at(ev) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) / r.width, y: (ev.clientY - r.top) / r.height };
+}
+canvas.addEventListener('pointerdown', ev => {
+  const p = at(ev);
+  let best = -1, bd = R * 1.6;
+  nodes.forEach((q, i) => { const d = Math.hypot(q.x-p.x, q.y-p.y); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) { dragging = best; canvas.setPointerCapture(ev.pointerId); draw(); }
+});
+canvas.addEventListener('pointermove', ev => {
+  if (dragging < 0) return;
+  const p = at(ev);
+  nodes[dragging].x = Math.min(1 - R, Math.max(R, p.x));
+  nodes[dragging].y = Math.min(1 - R, Math.max(R, p.y));
+  draw();
+});
+const drop = () => { if (dragging >= 0) { dragging = -1; draw(); } };
+canvas.addEventListener('pointerup', drop);
+canvas.addEventListener('pointercancel', drop);
+
+document.getElementById('again').onclick = scramble;
+document.getElementById('next').onclick = () => { level = Math.min(level + 1, 14); generate(level); };
+addEventListener('resize', draw);
+
+generate(level);
+</script>
+</body>
+</html>
