@@ -27,6 +27,7 @@ things rather than accumulating half-started repos.
 | 2026-10-15 | [Copy-on-Write Drafts](javascript/copy-on-write-drafts/) | javascript | Mutate a draft freely and get an immutable copy that shares every untouched subtree; a Proxy copies the spine on first write, not the leaves |
 | 2026-10-16 | [Subarrays with K Different Integers](leetcode/subarrays-with-k-distinct/) | leetcode  | LeetCode 992 two ways: exactly(k) as atMost(k) minus atMost(k-1), and a single pass carrying two left edges whose gap is the count |
 | 2026-10-17 | [Untangle](web-games/untangle/) | web-games | Planarity puzzle whose generator builds a crossing-free drawing first, then scrambles it, so every board is solvable by construction |
+| 2026-10-18 | [Dancing Links](algorithms/dancing-links/) | algorithms | Algorithm X over a self-unlinking mesh of doubly linked nodes; optional columns turn N-queens, which is not an exact cover, into one |
 
 ## Categories
 
