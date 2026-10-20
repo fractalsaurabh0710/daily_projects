@@ -29,6 +29,7 @@ things rather than accumulating half-started repos.
 | 2026-10-17 | [Untangle](web-games/untangle/) | web-games | Planarity puzzle whose generator builds a crossing-free drawing first, then scrambles it, so every board is solvable by construction |
 | 2026-10-18 | [Dancing Links](algorithms/dancing-links/) | algorithms | Algorithm X over a self-unlinking mesh of doubly linked nodes; optional columns turn N-queens, which is not an exact cover, into one |
 | 2026-10-19 | [AST Semantic Diff](python/ast-semantic-diff/) | python | Diffs two Python files through their syntax trees, so reformatting, comments, reworded docstrings and renamed locals each report as what they are rather than as changed code |
+| 2026-10-20 | [ansiwrap](cli-tools/ansiwrap/) | cli-tools | Word-wraps coloured terminal text: escapes count as zero columns, CJK as two, and a style open at the break is closed and re-opened so every line stands alone |
 
 ## Categories
 
