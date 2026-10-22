@@ -31,6 +31,7 @@ things rather than accumulating half-started repos.
 | 2026-10-19 | [AST Semantic Diff](python/ast-semantic-diff/) | python | Diffs two Python files through their syntax trees, so reformatting, comments, reworded docstrings and renamed locals each report as what they are rather than as changed code |
 | 2026-10-20 | [ansiwrap](cli-tools/ansiwrap/) | cli-tools | Word-wraps coloured terminal text: escapes count as zero columns, CJK as two, and a style open at the break is closed and re-opened so every line stands alone |
 | 2026-10-21 | [Streaming JSON Select](javascript/streaming-json-select/) | javascript | Feed JSON in chunks of any size and get back only the values matching a path pattern; the parse state lives in fields rather than on the call stack, so a chunk may split mid-string or mid-escape |
+| 2026-10-22 | [Burst Balloons](leetcode/burst-balloons/) | leetcode  | LeetCode 312 by deciding which balloon bursts *last*: choosing the first one leaves the two halves entangled, choosing the last one makes its neighbours known and the sides independent |
 
 ## Categories
 
