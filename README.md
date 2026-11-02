@@ -32,6 +32,14 @@ things rather than accumulating half-started repos.
 | 2026-10-20 | [ansiwrap](cli-tools/ansiwrap/) | cli-tools | Word-wraps coloured terminal text: escapes count as zero columns, CJK as two, and a style open at the break is closed and re-opened so every line stands alone |
 | 2026-10-21 | [Streaming JSON Select](javascript/streaming-json-select/) | javascript | Feed JSON in chunks of any size and get back only the values matching a path pattern; the parse state lives in fields rather than on the call stack, so a chunk may split mid-string or mid-escape |
 | 2026-10-22 | [Burst Balloons](leetcode/burst-balloons/) | leetcode  | LeetCode 312 by deciding which balloon bursts *last*: choosing the first one leaves the two halves entangled, choosing the last one makes its neighbours known and the sides independent |
+| 2026-10-23 | [Tilt Maze](web-games/tilt-maze/) | web-games | Slide-until-you-hit-something puzzle; the ball can only rest where a wall stops it, so the generator takes the goal from a BFS over resting places and par is the true shortest solution |
+| 2026-10-24 | [Aho-Corasick](algorithms/aho-corasick/) | algorithms | Every pattern found in one pass: the BFS that computes failure links also fills in every missing trie edge, so matching never steps backwards, and a second chain of links reports the patterns hiding as suffixes of the one just matched |
+| 2026-10-25 | [Exact Floats](python/exact-floats/) | python | The full decimal value of a float, with no rounding anywhere: a float is n/2**k, so multiplying by 5**k turns the denominator into a decimal point — 0.1 takes 55 digits to write down exactly, and the smallest subnormal takes 751 |
+| 2026-10-26 | [dupe-sieve](cli-tools/dupe-sieve/) | cli-tools | Duplicate finder that barely reads anything: size, then a 4 KiB head hash, then the whole file, so only near-certain duplicates are ever read through — and it prints what fraction of the data that was |
+| 2026-10-27 | [Promises from Scratch](javascript/promises-from-scratch/) | javascript | A Promise built on queueMicrotask that matches the native one tick for tick; the test runs the same program under both and the logs come out line-for-line identical, adoption's two-tick penalty included |
+| 2026-10-28 | [Russian Doll Envelopes](leetcode/russian-doll-envelopes/) | leetcode  | LeetCode 354 as longest increasing subsequence over heights, which only works once ties in width sort by height *descending* — that one minus sign makes a tied group unusable by an increasing run, so the ordering enforces the constraint the LIS pass cannot see |
+| 2026-10-29 | [Zip Grid](web-games/zip-grid/) | web-games | Draw one line through every cell, hitting the numbers in order; rather than searching for a Hamiltonian path the generator backbites a boustrophedon snake into a random one and numbers cells along it, so the solution exists before the puzzle does |
+| 2026-11-02 | [Basmati Grain Profiler](food-tech/basmati-grain-profiler/) | food-tech | Part 1 of 7: PNG reader/writer on zlib and a synthetic rice-on-a-mat generator with exact ground truth, so each later measurement stage can be tested against known lengths, breadths and chalk fractions |
 
 ## Categories
 
@@ -43,6 +51,7 @@ Projects are filed by what they are, not by when they were made:
 - **`javascript/`** — Node scripts and language experiments that are not games.
 - **`algorithms/`** — classic data structures and algorithms implemented from scratch.
 - **`cli-tools/`** — small terminal utilities.
+- **`food-tech/`** — food-industry quality-control tools, built as multi-day projects: grading, contamination and spoilage detection.
 
 Folders appear as the first project in them is written.
 

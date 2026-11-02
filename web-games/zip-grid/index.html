@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zip Grid</title>
+<style>
+  :root { --bg:#11141a; --cell:#1b212c; --ink:#e7ecf3; --line:#5ad1a8; --dim:#78839a; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; gap:14px; background:var(--bg); color:var(--ink);
+         font:16px/1.45 ui-sans-serif,system-ui,sans-serif; user-select:none; -webkit-user-select:none; }
+  h1 { margin:0; font-size:19px; font-weight:600; letter-spacing:.05em; }
+  p.how { margin:0; color:var(--dim); font-size:14px; }
+  #status { min-height:1.45em; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #status.win { color:var(--line); }
+  svg { touch-action:none; max-width:92vw; }
+  .cell { fill:var(--cell); stroke:var(--bg); stroke-width:3; }
+  .ck { fill:var(--ink); }
+  .cknum { fill:#11141a; text-anchor:middle; dominant-baseline:central;
+           font:600 18px ui-sans-serif,system-ui,sans-serif; }
+  #path { fill:none; stroke:var(--line); stroke-width:11; stroke-linecap:round;
+          stroke-linejoin:round; opacity:.8; }
+  button { background:#232b38; color:var(--ink); border:1px solid #39445699;
+           border-radius:6px; padding:7px 13px; font:inherit; cursor:pointer; }
+  button:hover { background:#2c3647; }
+</style>
+</head>
+<body>
+<h1>ZIP GRID</h1>
+<p class="how">Drag from 1 to the last number, through the numbers in order, filling every cell.</p>
+<svg id="board"></svg>
+<div id="status"></div>
+<div><button id="new">New puzzle</button> <button id="reveal">Reveal</button></div>
+<script>
+const N = 6, S = 62, PAD = 6;
+const idx = (x, y) => y * N + x;
+const neighbours = i => {
+  const x = i % N, y = (i - x) / N, out = [];
+  if (x > 0) out.push(i - 1);
+  if (x < N - 1) out.push(i + 1);
+  if (y > 0) out.push(i - N);
+  if (y < N - 1) out.push(i + N);
+  return out;
+};
+function mulberry32(a) {
+  return function () {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// A random Hamiltonian path by "backbite": start from the boustrophedon snake,
+// which already covers every cell, then bend one end onto a random grid
+// neighbour and reverse the tail behind it. Both moves keep the path spanning
+// and simple, so every intermediate state is still a Hamiltonian path.
+function hamiltonianPath(rng, moves = 4000) {
+  const path = [];
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) path.push(idx(y % 2 ? N - 1 - x : x, y));
+  for (let m = 0; m < moves; m++) {
+    if (rng() < 0.5) path.reverse();
+    const end = path[path.length - 1];
+    const cand = neighbours(end);
+    const j = path.indexOf(cand[Math.floor(rng() * cand.length)]);
+    if (j >= path.length - 2) continue;      // already the end's predecessor
+    const tail = path.splice(j + 1).reverse();
+    for (const c of tail) path.push(c);
+  }
+  return path;
+}
+
+// Number a few cells along that path. The path itself is therefore a solution,
+// so no generated puzzle can be unsolvable.
+function makePuzzle(seed) {
+  const rng = mulberry32(seed);
+  const sol = hamiltonianPath(rng);
+  const stops = [0];
+  for (let p = 0; ;) {
+    p += 5 + Math.floor(rng() * 4);
+    if (p >= sol.length - 2) break;
+    stops.push(p);
+  }
+  stops.push(sol.length - 1);
+  const marks = new Map();
+  stops.forEach((p, k) => marks.set(sol[p], k + 1));
+  return { sol, marks };
+}
+
+function boot() {
+  const svg = document.getElementById('board');
+  const status = document.getElementById('status');
+  const cx = i => PAD + (i % N) * S + S / 2;
+  const cy = i => PAD + ((i - i % N) / N) * S + S / 2;
+  let puzzle, path = [], drawing = false;
+
+  function render(msg) {
+    svg.querySelector('#path').setAttribute('points',
+      path.map(i => cx(i) + ',' + cy(i)).join(' '));
+    if (msg) { status.textContent = msg; status.classList.remove('win'); return; }
+    const full = path.length === N * N &&
+      puzzle.marks.get(path[path.length - 1]) === puzzle.marks.size;
+    status.textContent = full ? 'Solved — every cell, every number in order.'
+                              : path.length + ' / ' + N * N + ' cells';
+    status.classList.toggle('win', full);
+  }
+
+  function newPuzzle() {
+    puzzle = makePuzzle((Math.random() * 1e9) | 0);
+    path = [];
+    const side = N * S + 2 * PAD;
+    svg.setAttribute('viewBox', '0 0 ' + side + ' ' + side);
+    svg.setAttribute('width', side);
+    svg.setAttribute('height', side);
+    let h = '';
+    for (let i = 0; i < N * N; i++)
+      h += '<rect class="cell" x="' + (PAD + (i % N) * S) + '" y="' +
+           (PAD + ((i - i % N) / N) * S) + '" width="' + S + '" height="' + S + '" rx="8"></rect>';
+    h += '<polyline id="path"></polyline>';
+    for (const [cell, k] of puzzle.marks)
+      h += '<circle class="ck" cx="' + cx(cell) + '" cy="' + cy(cell) + '" r="' + S * 0.3 +
+           '"></circle><text class="cknum" x="' + cx(cell) + '" y="' + cy(cell) + '">' + k + '</text>';
+    svg.innerHTML = h;
+    render();
+  }
+
+  function cellAt(ev) {
+    const r = svg.getBoundingClientRect(), side = N * S + 2 * PAD;
+    const x = Math.floor(((ev.clientX - r.left) / r.width * side - PAD) / S);
+    const y = Math.floor(((ev.clientY - r.top) / r.height * side - PAD) / S);
+    return x >= 0 && y >= 0 && x < N && y < N ? idx(x, y) : -1;
+  }
+
+  // One rule for every pointer sample: stepping onto a cell already in the path
+  // rewinds to it, so a wrong turn is undone by dragging back over it.
+  function extend(c) {
+    if (c < 0 || !path.length) return;
+    const at = path.indexOf(c);
+    if (at >= 0) { path.length = at + 1; render(); return; }
+    if (!neighbours(path[path.length - 1]).includes(c)) return;
+    const m = puzzle.marks.get(c);
+    if (m !== undefined && m !== path.filter(i => puzzle.marks.has(i)).length + 1) return;
+    path.push(c);
+    render();
+  }
+
+  svg.addEventListener('pointerdown', e => {
+    const c = cellAt(e);
+    if (c < 0) return;
+    svg.setPointerCapture(e.pointerId);
+    drawing = true;
+    if (puzzle.marks.get(c) === 1 && !path.length) path = [c];
+    else extend(c);
+    render();
+  });
+  svg.addEventListener('pointermove', e => { if (drawing) extend(cellAt(e)); });
+  svg.addEventListener('pointerup', () => { drawing = false; });
+  document.getElementById('new').onclick = newPuzzle;
+  document.getElementById('reveal').onclick = () => {
+    path = puzzle.sol.slice();
+    render('Revealed — the path the numbers were taken from.');
+  };
+  newPuzzle();
+}
+
+if (typeof document !== 'undefined') boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilt Maze</title>
+<style>
+  :root { --bg: #14161a; --cell: #23272e; --wall: #4a5160; --ink: #e6e8ec; --accent: #ffc24b; --goal: #4ad6a0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+         align-items: center; justify-content: center; gap: 18px; padding: 24px;
+         background: var(--bg); color: var(--ink);
+         font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .02em; }
+  p.hint { margin: 0; opacity: .55; font-size: 13px; }
+  #board { display: grid; grid-template-columns: repeat(8, 40px); gap: 3px; }
+  .cell { width: 40px; height: 40px; border-radius: 5px; background: var(--cell); }
+  .wall { background: var(--wall); }
+  .goal { background: transparent; box-shadow: inset 0 0 0 3px var(--goal); }
+  .ball { background: var(--accent); box-shadow: 0 0 14px rgba(255,194,75,.45); }
+  .goal.ball { box-shadow: inset 0 0 0 3px var(--goal), 0 0 14px rgba(255,194,75,.45); }
+  #status { font-variant-numeric: tabular-nums; min-height: 1.5em; }
+  #pad { display: grid; grid-template-columns: repeat(3, 44px); gap: 6px; justify-items: center; }
+  button { padding: 8px 0; width: 44px; border: 0; border-radius: 6px; cursor: pointer;
+           background: var(--cell); color: var(--ink); font-size: 15px; }
+  button:hover { background: var(--wall); }
+  #new { width: auto; padding: 8px 16px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>Tilt Maze</h1>
+  <p class="hint">The ball slides until a wall stops it. Reach the ring.</p>
+  <div id="board"></div>
+  <div id="status"></div>
+  <div id="pad">
+    <span></span><button data-dir="up">&uarr;</button><span></span>
+    <button data-dir="left">&larr;</button>
+    <button data-dir="down">&darr;</button>
+    <button data-dir="right">&rarr;</button>
+  </div>
+  <button id="new">New level</button>
+  <script src="game.js"></script>
+</body>
+</html>
