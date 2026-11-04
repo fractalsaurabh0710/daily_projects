@@ -42,6 +42,7 @@ things rather than accumulating half-started repos.
 | 2026-10-30 | [Suffix Automaton](algorithms/suffix-automaton/) | algorithms | The smallest DFA accepting exactly the suffixes of a string, built online one character at a time; every state is a set of substrings sharing their end positions, so one pass over the suffix-link tree answers occurrence counts, and `length[v] - length[link[v]]` summed over states counts the 53 distinct substrings of `mississippi` |
 | 2026-11-02 | [Basmati Grain Profiler](food-tech/basmati-grain-profiler/) | food-tech | Part 1 of 7: PNG reader/writer on zlib and a synthetic rice-on-a-mat generator with exact ground truth, so each later measurement stage can be tested against known lengths, breadths and chalk fractions |
 | 2026-11-03 | [Splay Tree](algorithms/splay-tree/) | algorithms | A BST that stores no balance information at all: 7.16 probes/access on a skewed workload where a perfectly balanced tree pays 10.00, and an in-order scan of a 1..n path stays at 5.32 probes while log n climbs from 11 to 15 |
+| 2026-11-04 | [Dict Collisions](python/dict-collisions/) | python | CPython's dict insertion path in pure Python, predicting a real dict's `__eq__` calls to the comparison; whether n colliding keys cost n(n-1)/2 depends on the hash *value*, since `perturb` dies before the first step for anything below 32 and leaves a permutation that cannot revisit a slot |
 
 ## Categories
 
