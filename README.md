@@ -44,6 +44,7 @@ things rather than accumulating half-started repos.
 | 2026-11-03 | [Splay Tree](algorithms/splay-tree/) | algorithms | A BST that stores no balance information at all: 7.16 probes/access on a skewed workload where a perfectly balanced tree pays 10.00, and an in-order scan of a 1..n path stays at 5.32 probes while log n climbs from 11 to 15 |
 | 2026-11-04 | [Dict Collisions](python/dict-collisions/) | python | CPython's dict insertion path in pure Python, predicting a real dict's `__eq__` calls to the comparison; whether n colliding keys cost n(n-1)/2 depends on the hash *value*, since `perturb` dies before the first step for anything below 32 and leaves a permutation that cannot revisit a slot |
 | 2026-11-05 | [invisibles](cli-tools/invisibles/) | cli-tools | Lints the characters you cannot see -- zero-width joins, bidi overrides, mixed-script words -- and aligns its caret row by rendering every source character to exactly one display cell, so tabs and zero-width characters stop breaking the columns |
+| 2026-11-06 | [Algebraic Effects](javascript/algebraic-effects/) | javascript | Generators as resumable computations: a program yields what it wants and a stack of handlers decides how, so the same untouched logic runs under a lookup table or an async fetcher with identical output -- and a handler can answer a failure with a substitute value, resuming the loop at the expression that asked instead of unwinding to a catch |
 
 ## Categories
 
