@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lights Out</title>
+<style>
+  :root { --on: #ffd34d; --off: #1d2230; --edge: #2e3647; --ink: #e8ecf4; }
+  body { margin: 0; min-height: 100vh; display: grid; place-content: center; gap: 14px;
+         background: #0e1118; color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, sans-serif;
+         text-align: center; padding: 24px; box-sizing: border-box; }
+  h1 { font-size: 22px; letter-spacing: .14em; text-transform: uppercase; margin: 0; font-weight: 600; }
+  #grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; width: min(84vw, 330px);
+          margin: 0 auto; }
+  .cell { aspect-ratio: 1; border: 1px solid var(--edge); border-radius: 9px; background: var(--off);
+          cursor: pointer; padding: 0; transition: background .12s, box-shadow .12s; }
+  .cell.on { background: var(--on); border-color: #ffe9a3; box-shadow: 0 0 16px -2px var(--on); }
+  .cell.hint { outline: 2px dashed #7fd1ff; outline-offset: 2px; }
+  .cell:focus-visible { outline: 2px solid #7fd1ff; }
+  button.act { background: #1d2230; color: var(--ink); border: 1px solid var(--edge);
+               border-radius: 7px; padding: 7px 13px; font: inherit; cursor: pointer; }
+  button.act:hover { background: #262d3e; }
+  #status { margin: 0; font-variant-numeric: tabular-nums; }
+  #status b { color: var(--on); }
+  #note { margin: 0; max-width: 42ch; color: #8d98ad; font-size: 13px; }
+</style>
+<body>
+<h1>Lights Out</h1>
+<p id="status"></p>
+<div id="grid"></div>
+<p><button class="act" id="new">New puzzle</button>
+   <button class="act" id="hint">Hint</button>
+   <button class="act" id="show">Show solution</button></p>
+<p id="note">Clicking a light toggles it and its orthogonal neighbours. Turn them all off.</p>
+
+<script>
+const N = 5, M = N * N;
+
+// masks[j] — the cells that pressing cell j toggles.
+const masks = [];
+for (let j = 0; j < M; j++) {
+  const r = (j / N) | 0, c = j % N;
+  let m = 1 << j;
+  if (r > 0)     m |= 1 << (j - N);
+  if (r < N - 1) m |= 1 << (j + N);
+  if (c > 0)     m |= 1 << (j - 1);
+  if (c < N - 1) m |= 1 << (j + 1);
+  masks.push(m);
+}
+
+const popcount = x => { let n = 0; while (x) { x &= x - 1; n++; } return n; };
+
+// Solve A·x = b over GF(2). Returns one solution plus a basis of the null space,
+// or null if b is unreachable. Press order never matters and pressing twice is a
+// no-op, so a solution is just a *set* of cells — a 25-bit vector.
+function solveSpace(b) {
+  const rows = [];
+  for (let i = 0; i < M; i++) {            // one equation per cell
+    let v = 0;
+    for (let j = 0; j < M; j++) if (masks[j] >> i & 1) v |= 1 << j;
+    rows.push([v, (b >> i) & 1]);
+  }
+  const pivotOf = new Array(M).fill(-1);
+  let r = 0;
+  for (let j = 0; j < M && r < M; j++) {
+    let p = -1;
+    for (let k = r; k < M; k++) if (rows[k][0] >> j & 1) { p = k; break; }
+    if (p < 0) continue;                   // free variable
+    [rows[r], rows[p]] = [rows[p], rows[r]];
+    for (let k = 0; k < M; k++)
+      if (k !== r && (rows[k][0] >> j & 1)) { rows[k][0] ^= rows[r][0]; rows[k][1] ^= rows[r][1]; }
+    pivotOf[j] = r++;
+  }
+  for (let k = r; k < M; k++) if (rows[k][0] === 0 && rows[k][1]) return null;
+  let part = 0;
+  for (let j = 0; j < M; j++) if (pivotOf[j] >= 0 && rows[pivotOf[j]][1]) part |= 1 << j;
+  const basis = [];
+  for (let f = 0; f < M; f++) {
+    if (pivotOf[f] >= 0) continue;
+    let v = 1 << f;
+    for (let j = 0; j < M; j++) if (pivotOf[j] >= 0 && (rows[pivotOf[j]][0] >> f & 1)) v |= 1 << j;
+    basis.push(v);
+  }
+  return { part, basis };
+}
+
+// The null space is tiny (2-dimensional on 5x5), so the fewest-press solution is
+// found by trying the particular solution against all 4 quiet patterns.
+function bestSolution(b) {
+  const s = solveSpace(b);
+  if (!s) return null;
+  let best = s.part;
+  for (let k = 1; k < (1 << s.basis.length); k++) {
+    let x = s.part;
+    for (let i = 0; i < s.basis.length; i++) if (k >> i & 1) x ^= s.basis[i];
+    if (popcount(x) < popcount(best)) best = x;
+  }
+  return best;
+}
+
+const grid = document.getElementById('grid');
+const cells = [];
+for (let j = 0; j < M; j++) {
+  const b = document.createElement('button');
+  b.className = 'cell';
+  b.setAttribute('aria-label', 'light ' + ((j / N | 0) + 1) + ',' + (j % N + 1));
+  b.onclick = () => press(j);
+  grid.append(b);
+  cells.push(b);
+}
+
+let state = 0, par = 0, presses = 0, hinted = -1;
+
+function render() {
+  for (let j = 0; j < M; j++) {
+    cells[j].classList.toggle('on', !!(state >> j & 1));
+    cells[j].classList.toggle('hint', j === hinted);
+  }
+  const left = popcount(bestSolution(state) ?? 0);
+  document.getElementById('status').innerHTML = state === 0
+    ? '<b>All out</b> in ' + presses + ' press' + (presses === 1 ? '' : 'es') +
+      ' — par was ' + par
+    : 'presses <b>' + presses + '</b> &nbsp;·&nbsp; par <b>' + par +
+      '</b> &nbsp;·&nbsp; ' + left + ' to go from here';
+}
+
+function press(j) {
+  if (state === 0) return;
+  state ^= masks[j];
+  presses++;
+  hinted = -1;
+  render();
+}
+
+function newPuzzle() {
+  do {
+    state = 0;
+    // Build the board by pressing, not by lighting at random: a reachable board
+    // is a solvable one, and 3 of every 4 random boards are not reachable.
+    for (let k = 0; k < 6 + Math.floor(Math.random() * 7); k++)
+      state ^= masks[Math.floor(Math.random() * M)];
+    par = popcount(bestSolution(state));
+  } while (par < 4);
+  presses = 0; hinted = -1;
+  render();
+}
+
+document.getElementById('new').onclick = newPuzzle;
+document.getElementById('hint').onclick = () => {
+  const s = bestSolution(state);
+  if (!s) return;
+  for (let j = 0; j < M; j++) if (s >> j & 1) { hinted = j; break; }
+  render();
+};
+document.getElementById('show').onclick = () => {
+  const s = bestSolution(state);
+  if (s === null) return;
+  const list = [];
+  for (let j = 0; j < M; j++) if (s >> j & 1) list.push('r' + ((j / N | 0) + 1) + 'c' + (j % N + 1));
+  document.getElementById('note').textContent =
+    'Fewest presses from here (' + list.length + ', in any order): ' + list.join(' ');
+};
+
+newPuzzle();
+</script>
+</body>
+</html>
