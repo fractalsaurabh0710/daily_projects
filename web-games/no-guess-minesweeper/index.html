@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No-Guess Minesweeper</title>
+<style>
+  body{background:#14161a;color:#e8e8e8;margin:0;padding:28px 16px;font:14px/1.5 ui-sans-serif,system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:14px}
+  h1{font-size:18px;font-weight:600;margin:0}
+  #hud{display:flex;gap:16px;align-items:center;color:#9aa4b2}
+  button{background:#2a2f38;color:#e8e8e8;border:1px solid #3a414d;border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer}
+  button:hover{background:#343b46}
+  #grid{display:grid;gap:2px}
+  .c{width:30px;height:30px;border-radius:3px;background:#3a414d;display:flex;align-items:center;
+     justify-content:center;font-weight:700;cursor:pointer;user-select:none}
+  .c:hover{background:#454d5b}
+  .c.open{background:#21252c;cursor:default}
+  .c.open:hover{background:#21252c}
+  .c.flag{background:#4a3a2a;color:#ffb86b}
+  .c.boom{background:#7a2a2a}
+  #msg{min-height:20px;text-align:center;max-width:34em;color:#9aa4b2}
+  .n1{color:#7cb7ff}.n2{color:#7ed78a}.n3{color:#ff8e8e}.n4{color:#c89bff}
+  .n5{color:#ffb86b}.n6{color:#6fdede}.n7{color:#e8e8e8}.n8{color:#9aa4b2}
+</style>
+</head>
+<body>
+<h1>No-Guess Minesweeper</h1>
+<div id="hud"><span id="left"></span><button id="new">New board</button></div>
+<div id="grid"></div>
+<div id="msg"></div>
+<script src="solver.js"></script>
+<script>
+const W = 9, H = 9, M = 10;
+const grid = document.getElementById('grid'), msg = document.getElementById('msg'),
+      left = document.getElementById('left');
+grid.style.gridTemplateColumns = `repeat(${W},30px)`;
+
+let mine, cnt, state, flags, over, cells = [];
+
+for (let i = 0; i < W * H; i++) {
+  const d = document.createElement('div');
+  d.className = 'c';
+  d.addEventListener('click', () => dig(i));
+  d.addEventListener('contextmenu', (e) => { e.preventDefault(); mark(i); });
+  grid.appendChild(d);
+  cells.push(d);
+}
+
+function newGame() {
+  const g = generate(W, H, M);
+  mine = g.mine;
+  cnt = counts(mine, W, H);
+  state = new Uint8Array(W * H);
+  flags = new Uint8Array(W * H);
+  over = 0;
+  open(g.start);
+  msg.textContent = `Solvable by logic alone — ${g.attempts} random board` +
+    `${g.attempts === 1 ? '' : 's'} tried before one needed no guesses. ` +
+    `Right-click to flag.`;
+  draw();
+}
+
+function open(i) {
+  const st = [i];
+  while (st.length) {
+    const k = st.pop();
+    if (state[k]) continue;
+    state[k] = 1;
+    flags[k] = 0;
+    if (cnt[k] === 0 && !mine[k]) for (const j of neighbors(k, W, H)) if (!state[j]) st.push(j);
+  }
+}
+
+function dig(i) {
+  if (over || state[i] || flags[i]) return;
+  if (mine[i]) {
+    over = -1;
+    for (let k = 0; k < W * H; k++) if (mine[k]) state[k] = 1;
+    msg.textContent = 'Boom. That one was deducible — the board never required a guess.';
+  } else {
+    open(i);
+    let hidden = 0;
+    for (let k = 0; k < W * H; k++) if (!state[k] && !mine[k]) hidden++;
+    if (!hidden) { over = 1; msg.textContent = 'Cleared, with logic and nothing else.'; }
+  }
+  draw();
+}
+
+function mark(i) {
+  if (over || state[i]) return;
+  flags[i] ^= 1;
+  draw();
+}
+
+function draw() {
+  let flagged = 0;
+  for (let i = 0; i < W * H; i++) if (flags[i]) flagged++;
+  left.textContent = `${M - flagged} mine${M - flagged === 1 ? '' : 's'} unflagged`;
+  for (let i = 0; i < W * H; i++) {
+    const d = cells[i];
+    let cls = 'c', text = '';
+    if (state[i]) {
+      cls += ' open';
+      if (mine[i]) { cls += over === -1 ? ' boom' : ''; text = '*'; }
+      else if (cnt[i]) { cls += ' n' + cnt[i]; text = cnt[i]; }
+    } else if (flags[i]) {
+      cls += ' flag';
+      text = '?';
+    }
+    d.className = cls;
+    d.textContent = text;
+  }
+}
+
+document.getElementById('new').addEventListener('click', newGame);
+newGame();
+</script>
+</body>
+</html>
