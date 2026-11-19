@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chomp</title>
+<style>
+  :root { --bg:#17120f; --fg:#f3e9df; --dim:#9b8b7c; --cookie:#c8803c; --crumb:#2a211b; --bad:#d4493f; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--fg);
+         font:15px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 20px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 4px; }
+  p  { color: var(--dim); margin: 0 0 18px; }
+  #board { display: grid; gap: 4px; justify-content: start; margin: 18px 0; }
+  .cell { width: 42px; height: 42px; border: 0; border-radius: 9px; background: var(--cookie);
+          cursor: pointer; transition: transform .08s, opacity .12s; padding: 0; }
+  .cell:hover:not(:disabled) { transform: scale(1.09); }
+  .cell.gone { background: var(--crumb); cursor: default; opacity: .55; }
+  .cell.poison { background: var(--bad); }
+  .cell:disabled { cursor: default; }
+  #status { min-height: 3em; }
+  #status b { color: var(--fg); }
+  button.ctl { background: none; color: var(--dim); border: 1px solid var(--dim);
+               border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+  button.ctl:hover { color: var(--fg); border-color: var(--fg); }
+  #proof { color: var(--dim); font-size: 13px; border-left: 2px solid var(--crumb);
+           padding-left: 12px; margin-top: 22px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chomp</h1>
+  <p>Eat a cookie and everything below and to its right. The red one is poisoned &mdash;
+     whoever is forced to eat it loses. You move first.</p>
+  <div id="board"></div>
+  <div id="status"></div>
+  <p><button class="ctl" id="again">new game</button></p>
+  <div id="proof"></div>
+</main>
+<script>
+"use strict";
+
+/* A position is a Young diagram: heights[c] cookies remain in column c,
+   occupying rows 0..heights[c]-1, and heights is non-increasing. */
+const ROWS = 5, COLS = 6;
+
+function eat(h, r, c) {
+  const n = h.slice();
+  for (let i = c; i < n.length; i++) n[i] = Math.min(n[i], r);
+  return n;
+}
+function moves(h) {
+  const out = [];
+  for (let c = 0; c < h.length; c++)
+    for (let r = 0; r < h[c]; r++)
+      if (r || c) out.push([r, c]);          // (0,0) is the poison, never a real move
+  return out;
+}
+
+/* win(h) === true  <=>  the player about to move can force a win.
+   Terminal: only the poison is left, so the mover must eat it. */
+const memo = new Map();
+function win(h) {
+  const key = h.join(",");
+  if (memo.has(key)) return memo.get(key);
+  let r = false;
+  for (const [y, x] of moves(h)) if (!win(eat(h, y, x))) { r = true; break; }
+  memo.set(key, r);
+  return r;
+}
+function bestMove(h) {
+  const ms = moves(h);
+  for (const [y, x] of ms) if (!win(eat(h, y, x))) return [y, x];
+  return ms.length ? ms[Math.floor(Math.random() * ms.length)] : null;
+}
+
+/* ---------- the claim, checked rather than asserted ---------------------- */
+function verify(maxR, maxC) {
+  const lines = [], bad = [];
+  for (let r = 1; r <= maxR; r++)
+    for (let c = 1; c <= maxC; c++) {
+      const got = win(new Array(c).fill(r));
+      const want = !(r === 1 && c === 1);     // 1x1 is pure poison: mover loses
+      if (got !== want) bad.push(r + "x" + c);
+    }
+  lines.push("strategy-stealing says every rectangle but 1x1 is a first-player win.");
+  lines.push("checked " + maxR + "x" + maxC + " and every rectangle inside it: " +
+             (bad.length ? "FAILED on " + bad.join(" ") : "all agree") + ".");
+  lines.push(memo.size + " distinct positions memoized to get there.");
+  lines.push("");
+  lines.push("The proof gives no move: if the opponent's reply to eating the far corner");
+  lines.push("were winning, the first player could have played it instead. That rules out");
+  lines.push("losing without naming a strategy, so this AI searches for one.");
+  return lines.join("\n");
+}
+
+/* ---------- play ---------------------------------------------------------- */
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+let heights, over;
+
+function reset() {
+  heights = new Array(COLS).fill(ROWS);
+  over = false;
+  boardEl.style.gridTemplateColumns = "repeat(" + COLS + ", 42px)";
+  boardEl.innerHTML = "";
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      const b = document.createElement("button");
+      b.className = "cell" + (r === 0 && c === 0 ? " poison" : "");
+      b.dataset.r = r; b.dataset.c = c;
+      b.onclick = () => play(r, c);
+      boardEl.appendChild(b);
+    }
+  say("Your move. " + (win(heights) ? "This position is won for you." :
+                                      "This position is lost for you."));
+  draw();
+}
+
+function draw() {
+  for (const b of boardEl.children) {
+    const r = +b.dataset.r, c = +b.dataset.c, alive = r < heights[c];
+    b.classList.toggle("gone", !alive);
+    b.disabled = over || !alive;
+  }
+}
+function say(html) { statusEl.innerHTML = html; }
+
+function play(r, c) {
+  if (over || r >= heights[c]) return;
+  if (r === 0 && c === 0) return finish("You ate the poison. <b>You lose.</b>");
+  heights = eat(heights, r, c);
+  draw();
+  if (moves(heights).length === 0)
+    return finish("Nothing left but the poison, and it is my turn. <b>You win.</b>");
+  const mv = bestMove(heights);
+  heights = eat(heights, mv[0], mv[1]);
+  draw();
+  if (moves(heights).length === 0)
+    return finish("Nothing left but the poison, and it is your turn. <b>You lose.</b>");
+  say("I took row " + (mv[0] + 1) + ", column " + (mv[1] + 1) + ". " +
+      (win(heights) ? "You are still winning." : "You are losing from here."));
+}
+function finish(msg) { over = true; draw(); say(msg); }
+
+document.getElementById("again").onclick = reset;
+reset();
+document.getElementById("proof").textContent = verify(6, 6);
+</script>
+</body>
+</html>
