@@ -1,0 +1,182 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Mastermind — Knuth's Five-Guess Algorithm</title>
+<style>
+  :root { --bg:#14161b; --fg:#e7e3da; --dim:#8b8f98; --line:#2b2f38; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;
+         margin:0; padding:28px; display:flex; gap:34px; flex-wrap:wrap; }
+  h1 { font-size:17px; margin:0 0 4px; letter-spacing:.02em; }
+  p.sub { color:var(--dim); margin:0 0 18px; max-width:46ch; }
+  .col { flex:1 1 330px; max-width:470px; }
+  .row { display:flex; align-items:center; gap:10px; margin:5px 0; }
+  .peg { width:26px; height:26px; border-radius:50%; border:1px solid #0006; }
+  .slot { width:26px; height:26px; border-radius:50%; border:1px dashed var(--line); }
+  .marks { font-size:13px; color:var(--dim); margin-left:6px; letter-spacing:.14em; }
+  button { background:#1d2027; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+           padding:6px 11px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#4a5160; }
+  .swatch { width:30px; height:30px; padding:0; border-radius:50%; }
+  #hint { color:var(--dim); white-space:pre-wrap; margin-top:14px; font-size:13px; }
+  #proof { color:var(--dim); white-space:pre-wrap; margin-top:12px; font-size:13px; min-height:5em; }
+  .win { color:#8fd694; }
+</style>
+
+<script>
+/* ---- pure logic: no DOM, so this block also runs under node ---- */
+const N = 1296, COLORS = 6;
+const DIGITS = [];
+for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++)
+  for (let c = 0; c < 6; c++) for (let d = 0; d < 6; d++) DIGITS.push([a, b, c, d]);
+
+/* feedback(g,s) = black*5 + white, packed for all 1296x1296 pairs up front */
+const FB = new Uint8Array(N * N);
+for (let i = 0; i < N; i++) {
+  const g = DIGITS[i];
+  for (let j = 0; j < N; j++) {
+    const s = DIGITS[j];
+    let black = 0;
+    const cg = new Int8Array(COLORS), cs = new Int8Array(COLORS);
+    for (let k = 0; k < 4; k++) {
+      if (g[k] === s[k]) black++; else { cg[g[k]]++; cs[s[k]]++; }
+    }
+    let white = 0;
+    for (let c = 0; c < COLORS; c++) white += Math.min(cg[c], cs[c]);
+    FB[i * N + j] = black * 5 + white;
+  }
+}
+const str = i => DIGITS[i].map(d => d + 1).join('');
+const FIRST = DIGITS.findIndex(d => String(d) === String([0, 0, 1, 1]));  // Knuth's 1122
+
+/* The solver is deterministic given the guesses played and the answers to them,
+   so the whole strategy is a tree and every node caches by that path.  The guess
+   has to be in the key: two different guesses can draw the same answer and leave
+   different candidate sets behind. */
+const memo = new Map();
+
+function chooseGuess(pool, path) {
+  if (memo.has(path)) return memo.get(path);
+  let pick;
+  if (path === '') pick = FIRST;
+  else if (pool.length <= 2) pick = pool[0];
+  else {
+    const inPool = new Uint8Array(N);
+    for (const s of pool) inPool[s] = 1;
+    let bestMax = Infinity, bestIn = 0;
+    const counts = new Int32Array(25);
+    for (let g = 0; g < N; g++) {
+      counts.fill(0);
+      let mx = 0;
+      for (let t = 0; t < pool.length; t++) {
+        const n = ++counts[FB[g * N + pool[t]]];
+        if (n > mx) mx = n;
+      }
+      if (mx < bestMax || (mx === bestMax && inPool[g] && !bestIn)) {
+        bestMax = mx; bestIn = inPool[g]; pick = g;
+      }
+    }
+  }
+  memo.set(path, pick);
+  return pick;
+}
+
+const filter = (pool, g, f) => pool.filter(s => FB[g * N + s] === f);
+
+function solve(secret) {
+  let pool = [...Array(N).keys()], path = '', turns = 0;
+  for (;;) {
+    const g = chooseGuess(pool, path);
+    turns++;
+    const f = FB[g * N + secret];
+    if (f === 20) return turns;              // 4 black pegs
+    pool = filter(pool, g, f);
+    path += g + ':' + f + ',';
+  }
+}
+
+function selfPlay() {
+  let worst = 0, total = 0;
+  const hist = {};
+  for (let s = 0; s < N; s++) {
+    const t = solve(s);
+    worst = Math.max(worst, t); total += t;
+    hist[t] = (hist[t] || 0) + 1;
+  }
+  return { worst, mean: total / N, hist, nodes: memo.size };
+}
+if (typeof module !== 'undefined') module.exports = { selfPlay, solve, chooseGuess, filter, str, N };
+</script>
+
+<div class="col">
+  <h1>Mastermind</h1>
+  <p class="sub">Four pegs, six colours, repeats allowed. ● = right colour right place,
+    ○ = right colour wrong place. 1296 codes; Knuth proved five guesses always suffice.</p>
+  <div id="board"></div>
+  <div class="row" id="draft"></div>
+  <div class="row" id="pad"></div>
+  <div id="hint"></div>
+</div>
+<div class="col">
+  <h1>The claim</h1>
+  <p class="sub">At each turn the solver plays the guess whose worst-case partition of the
+    remaining candidates is smallest — not the guess most likely to be right.</p>
+  <button id="prove">prove it: self-play all 1296 secrets</button>
+  <pre id="proof"></pre>
+</div>
+
+<script>
+/* ---- UI ---- */
+const HUES = ['#d4654f', '#d9a74a', '#7fae5a', '#4f93c4', '#9b7bc4', '#cfc7b8'];
+const secret = Math.floor(Math.random() * N);
+let draft = [], pool = [...Array(N).keys()], path = '', done = false;
+
+const board = document.getElementById('board'), hint = document.getElementById('hint');
+const dot = (c, cls) => `<span class="${cls || 'peg'}" style="${c != null ? `background:${HUES[c]}` : ''}"></span>`;
+
+function drawDraft() {
+  document.getElementById('draft').innerHTML =
+    [0, 1, 2, 3].map(i => dot(draft[i], draft[i] == null ? 'slot' : 'peg')).join('');
+}
+
+function submit() {
+  if (done || draft.length < 4) return;
+  const g = DIGITS.findIndex(d => d.every((v, i) => v === draft[i]));
+  const f = FB[g * N + secret], black = f / 5 | 0, white = f % 5;
+  const before = pool.length;
+  pool = filter(pool, g, f); path += g + ':' + f + ',';
+  const best = done ? null : chooseGuess(pool.length ? pool : [secret], path);
+  board.insertAdjacentHTML('beforeend',
+    `<div class="row">${draft.map(c => dot(c)).join('')}` +
+    `<span class="marks">${'●'.repeat(black)}${'○'.repeat(white)}${'·'.repeat(4 - black - white)}</span>` +
+    `<span class="marks">${before} → ${pool.length} left</span></div>`);
+  draft = []; drawDraft();
+  if (f === 20) {
+    done = true;
+    hint.innerHTML = `<span class="win">Cracked it.</span>`;
+  } else {
+    hint.textContent = `Knuth's next guess here: ${str(best)}  (it would leave at most ` +
+      `${Math.max(...Object.values(pool.reduce((m, s) => (m[FB[best * N + s]] = (m[FB[best * N + s]] || 0) + 1, m), {})))}` +
+      ` possibilities, whatever the answer)`;
+  }
+}
+
+document.getElementById('pad').innerHTML =
+  HUES.map((h, i) => `<button class="swatch" style="background:${h}" data-c="${i}"></button>`).join('') +
+  ` <button id="back">⌫</button> <button id="go">guess</button>`;
+document.getElementById('pad').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'go') return submit();
+  if (b.id === 'back') { draft.pop(); return drawDraft(); }
+  if (draft.length < 4) { draft.push(+b.dataset.c); drawDraft(); }
+};
+document.getElementById('prove').onclick = () => {
+  const out = document.getElementById('proof');
+  out.textContent = 'solving all 1296 secrets…';
+  setTimeout(() => {
+    const t0 = performance.now(), r = selfPlay(), ms = Math.round(performance.now() - t0);
+    out.textContent = `worst case: ${r.worst} guesses\nmean: ${r.mean.toFixed(4)}\n` +
+      Object.entries(r.hist).map(([k, v]) => `  ${k} guesses: ${v} secrets`).join('\n') +
+      `\nstrategy-tree nodes visited: ${r.nodes}\n${ms} ms`;
+  }, 20);
+};
+drawDraft();
+</script>
